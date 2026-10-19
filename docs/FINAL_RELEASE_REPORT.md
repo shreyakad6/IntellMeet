@@ -141,23 +141,30 @@ Exit Code: 0 (Zero Vite build errors)
 
 ---
 
-## 7. Public Deployment Status & Options
+## 7. Public Deployment Status & Hosting Pathways
 
-### Current Status
-- **Local / Container Services**: Currently running live and healthy on `http://localhost:5173` (Frontend) and `http://localhost:5000` (Backend API).
-- **Docker Compose Production Stack**: Multi-stage Dockerfiles (`docker/Dockerfile.server`, `docker/Dockerfile.client`) and `docker-compose.yml` are ready.
-- **Public Cloud Hosting**: To adhere to the instruction ("with my approval for any account access, no paid services to be used"), no external accounts were accessed without explicit user permission.
+### Current Deployment Status
+- **Public GitHub Source Repository**: [https://github.com/shreyakad6/IntellMeet](https://github.com/shreyakad6/IntellMeet) (Created & Pushed)
+- **Continuous Integration Pipeline**: [https://github.com/shreyakad6/IntellMeet/actions/runs/39306563168](https://github.com/shreyakad6/IntellMeet/actions/runs/39306563168) (**`✓ Passed in 36s`** across all lint, test, and build steps)
+- **Cloud Infrastructure Configurations**:
+  - `render.yaml`: Ready for 1-click zero-cost backend deployment on [Render.com](https://render.com) (Node.js + WebSockets / Socket.io, Oregon region).
+  - `client/vercel.json`: Ready for 1-click zero-cost frontend deployment on [Vercel](https://vercel.com) (React 19 SPA routing).
+  - `docker-compose.yml`: Multi-stage production container stack verified.
+- **Local Services Running**: Healthy and listening on `http://localhost:5173` (Frontend) and `http://localhost:5000` (Backend API).
 
-### Approved Free-Tier Deployment Pathways:
-1. **GitHub + Render (Backend) & Vercel (Frontend)**:
-   - Free tier on Render.com supports Node.js + WebSockets / Socket.io.
-   - Free tier on Vercel or Netlify hosts the static React 19 production build.
-   - Free MongoDB Atlas M0 cluster provides cloud database persistence.
-   - *Requires*: User providing a GitHub repository URL or approving GitHub push.
-2. **Instant Zero-Config Public HTTPS Tunnel**:
-   - Using free Cloudflare Quick Tunnel (`cloudflared`) or ngrok or localtunnel on port 5173 to provide an immediate live HTTPS URL accessible worldwide for evaluator inspection with zero account signups.
-3. **Self-Hosted Local / Docker Production Container**:
-   - `docker compose up -d --build` running on port 80 / 5000 with self-hosted Nginx reverse proxy.
+### 1-Click Cloud Deployment Steps (Zero Paid Services):
+1. **Backend on Render (Free Tier)**:
+   - Log in to [Render.com](https://dashboard.render.com/) with GitHub.
+   - Click **"New +" ➔ "Blueprint"**, select `shreyakad6/IntellMeet`.
+   - Render automatically provisions the web service using `render.yaml`, generates secrets, and assigns a live public URL (e.g. `https://intellmeet-backend.onrender.com`).
+   - Add your free [MongoDB Atlas](https://www.mongodb.com/atlas) connection URI to `MONGODB_URI`.
+2. **Frontend on Vercel (Free Tier)**:
+   - Log in to [Vercel.com](https://vercel.com/) with GitHub.
+   - Click **"Add New" ➔ "Project"**, import `shreyakad6/IntellMeet`.
+   - Set **Root Directory** to `client`, and add environment variable:
+     - `VITE_API_URL`: `https://intellmeet-backend.onrender.com/api`
+     - `VITE_WS_URL`: `https://intellmeet-backend.onrender.com`
+   - Click **Deploy**; Vercel compiles the production bundle in under 60 seconds with an instant global HTTPS URL (e.g. `https://intellmeet.vercel.app`).
 
 ---
 
