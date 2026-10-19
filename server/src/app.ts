@@ -24,7 +24,28 @@ export const createApp = (): express.Application => {
   // CORS Configuration
   app.use(
     cors({
-      origin: [config.CLIENT_URL, 'http://localhost:5173', 'http://127.0.0.1:5173'],
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        const allowedOrigins = [
+          config.CLIENT_URL,
+          'http://localhost:5173',
+          'http://127.0.0.1:5173',
+          'http://localhost:5000',
+          'http://localhost'
+        ];
+        if (
+          allowedOrigins.includes(origin) ||
+          origin.endsWith('.loca.lt') ||
+          origin.endsWith('.ngrok-free.app') ||
+          origin.endsWith('.vercel.app') ||
+          origin.endsWith('.onrender.com') ||
+          origin.endsWith('.railway.app') ||
+          config.NODE_ENV !== 'production'
+        ) {
+          return callback(null, true);
+        }
+        return callback(null, true);
+      },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
@@ -53,7 +74,11 @@ export const createApp = (): express.Application => {
       services: {
         database: dbStatus,
         cache: isRedisActive() ? 'redis' : 'in-memory-fallback',
-        aiService: config.DEMO_MODE ? 'demo-mode' : 'openai-configured'
+        aiService: {
+          demoMode: config.DEMO_MODE,
+          geminiConfigured: config.isGeminiConfigured,
+          groqConfigured: config.isGroqConfigured
+        }
       }
     });
   });
