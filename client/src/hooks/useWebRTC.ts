@@ -143,7 +143,8 @@ export function useWebRTC(meetingCode: string) {
       const stream = await initLocalMedia();
       if (!mounted) return;
 
-      const socket = io('/', {
+      const socketUrl = import.meta.env.VITE_WS_URL || '/';
+      const socket = io(socketUrl, {
         transports: ['websocket', 'polling']
       });
       socketRef.current = socket;

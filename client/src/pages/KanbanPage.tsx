@@ -50,7 +50,8 @@ export function KanbanPage() {
 
   // Socket for real-time task sync
   useEffect(() => {
-    const socket: Socket = io('/', { transports: ['websocket', 'polling'] });
+    const socketUrl = import.meta.env.VITE_WS_URL || '/';
+    const socket: Socket = io(socketUrl, { transports: ['websocket', 'polling'] });
     socket.emit('join-workspace', 'default');
 
     socket.on('task-updated', (updatedTask: any) => {
