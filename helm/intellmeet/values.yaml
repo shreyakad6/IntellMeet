@@ -1,0 +1,56 @@
+# Default values for intellmeet Helm chart
+
+replicaCount: 2
+
+backend:
+  image:
+    repository: intellmeet/backend
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  service:
+    type: ClusterIP
+    port: 5000
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  env:
+    nodeEnv: "production"
+    redisEnabled: "true"
+    demoMode: "false"
+
+frontend:
+  image:
+    repository: intellmeet/frontend
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  service:
+    type: ClusterIP
+    port: 80
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+mongodb:
+  enabled: true
+  image:
+    repository: mongo
+    tag: "7.0"
+  service:
+    port: 27017
+
+ingress:
+  enabled: true
+  className: "nginx"
+  hosts:
+    - host: intellmeet.company.com
+      paths:
+        - path: /
+          pathType: Prefix

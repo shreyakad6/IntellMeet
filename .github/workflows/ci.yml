@@ -1,0 +1,58 @@
+name: IntellMeet CI Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test-and-build:
+    name: Lint, Test & Build
+    runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:7.0
+        ports:
+          - 27017:27017
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      # Install Server Dependencies
+      - name: Install Backend Dependencies
+        working-directory: ./server
+        run: npm ci
+
+      # Run Server Tests
+      - name: Execute Backend Automated Tests
+        working-directory: ./server
+        env:
+          NODE_ENV: test
+          MONGODB_URI: mongodb://localhost:27017/intellmeet_ci_test
+          JWT_SECRET: ci_test_jwt_secret_32_characters_long_for_auth
+          DEMO_MODE: "true"
+        run: npm test
+
+      # Build Server TypeScript
+      - name: Build Backend (TypeScript)
+        working-directory: ./server
+        run: npm run build
+
+      # Install Client Dependencies
+      - name: Install Frontend Dependencies
+        working-directory: ./client
+        run: npm install --legacy-peer-deps
+
+      # Build Client Bundle
+      - name: Build Frontend (Vite)
+        working-directory: ./client
+        run: npm run build
