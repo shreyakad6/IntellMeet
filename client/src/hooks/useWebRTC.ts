@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useMeetingStore } from '../store/meetingStore.js';
 import { useAuthStore } from '../store/authStore.js';
+import { getSocketUrl } from '../services/api.js';
 
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
@@ -22,6 +23,7 @@ export interface RemotePeer {
   isVideoOff?: boolean;
   isSharingScreen?: boolean;
   reaction?: string | null;
+  isSpeaking?: boolean;
 }
 
 export function useWebRTC(meetingCode: string) {
@@ -41,6 +43,8 @@ export function useWebRTC(meetingCode: string) {
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [liveCaptions, setLiveCaptions] = useState<{ speaker: string; text: string; time: string }[]>([]);
+  const [isLocalSpeaking, setIsLocalSpeaking] = useState(false);
+  const [meetingEndedByHost, setMeetingEndedByHost] = useState(false);
 
   const socketRef = useRef<Socket | null>(null);
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
@@ -48,6 +52,9 @@ export function useWebRTC(meetingCode: string) {
   const screenTrackRef = useRef<MediaStreamTrack | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const audioIntervalRef = useRef<any>(null);
 
   // 1. Initialize Local Media Stream
   const initLocalMedia = useCallback(async () => {
@@ -143,7 +150,7 @@ export function useWebRTC(meetingCode: string) {
       const stream = await initLocalMedia();
       if (!mounted) return;
 
-      const socketUrl = import.meta.env.VITE_WS_URL || '/';
+      const socketUrl = getSocketUrl();
       const socket = io(socketUrl, {
         transports: ['websocket', 'polling']
       });
@@ -168,6 +175,16 @@ export function useWebRTC(meetingCode: string) {
         const peersMap = new Map<string, RemotePeer>();
 
         for (const peer of data.users) {
+          // Avoid adding self as a remote peer
+          if (peer.userId === user._id) continue;
+
+          // Clear any duplicate peer with same userId
+          for (const [existingSocketId, existingPeer] of peersMap.entries()) {
+            if (existingPeer.userId === peer.userId) {
+              peersMap.delete(existingSocketId);
+            }
+          }
+
           peersMap.set(peer.socketId, {
             socketId: peer.socketId,
             userId: peer.userId,
@@ -176,7 +193,8 @@ export function useWebRTC(meetingCode: string) {
             isHost: peer.isHost,
             isMuted: peer.isMuted,
             isVideoOff: peer.isVideoOff,
-            isSharingScreen: peer.isSharingScreen
+            isSharingScreen: peer.isSharingScreen,
+            isSpeaking: false
           });
 
           // Create WebRTC Offer
@@ -200,14 +218,32 @@ export function useWebRTC(meetingCode: string) {
       // New peer joined room (Wait for their offer or prepare peer record)
       socket.on('user-connected', (data: { participant: any }) => {
         const p = data.participant;
+        if (p.userId === user._id) return;
+
         setRemotePeers((prev) => {
           const next = new Map(prev);
+          // If another socket was registered for this user, close old pc and remove old entry
+          for (const [existingSocketId, existingPeer] of next.entries()) {
+            if (existingPeer.userId === p.userId && existingSocketId !== p.socketId) {
+              const oldPc = peerConnections.current.get(existingSocketId);
+              if (oldPc) {
+                oldPc.close();
+                peerConnections.current.delete(existingSocketId);
+              }
+              next.delete(existingSocketId);
+            }
+          }
+
           next.set(p.socketId, {
             socketId: p.socketId,
             userId: p.userId,
             userName: p.userName,
             userAvatar: p.userAvatar,
-            isHost: p.isHost
+            isHost: p.isHost,
+            isMuted: p.isMuted,
+            isVideoOff: p.isVideoOff,
+            isSharingScreen: p.isSharingScreen,
+            isSpeaking: false
           });
           return next;
         });
@@ -251,6 +287,21 @@ export function useWebRTC(meetingCode: string) {
               ...peer,
               isMuted: data.isMuted,
               isVideoOff: data.isVideoOff
+            });
+          }
+          return next;
+        });
+      });
+
+      // Peer speaking status changed
+      socket.on('peer-speaking', (data: { socketId: string; isSpeaking: boolean }) => {
+        setRemotePeers((prev) => {
+          const next = new Map(prev);
+          const peer = next.get(data.socketId);
+          if (peer && peer.isSpeaking !== data.isSpeaking) {
+            next.set(data.socketId, {
+              ...peer,
+              isSpeaking: data.isSpeaking
             });
           }
           return next;
@@ -316,6 +367,19 @@ export function useWebRTC(meetingCode: string) {
         });
       });
 
+      // Live caption from a peer
+      socket.on('new-live-caption', (data: { socketId: string; speakerName: string; text: string; timestamp: string }) => {
+        setLiveCaptions((prev) => [
+          ...prev.slice(-49),
+          { speaker: data.speakerName, text: data.text, time: data.timestamp }
+        ]);
+      });
+
+      // Meeting ended by host
+      socket.on('meeting-ended', () => {
+        setMeetingEndedByHost(true);
+      });
+
       socket.on('disconnect', () => {
         setConnectionStatus('disconnected');
       });
@@ -339,6 +403,15 @@ export function useWebRTC(meetingCode: string) {
       if (socketRef.current) {
         socketRef.current.emit('leave-room');
         socketRef.current.disconnect();
+      }
+      // Audio context cleanup
+      if (audioIntervalRef.current) {
+        clearInterval(audioIntervalRef.current);
+        audioIntervalRef.current = null;
+      }
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close().catch(() => {});
+        audioContextRef.current = null;
       }
     };
   }, [meetingCode, user, initLocalMedia, createPeerConnection]);
@@ -372,7 +445,79 @@ export function useWebRTC(meetingCode: string) {
     }
   }, [isVideoOff, localStream, isAudioMuted]);
 
-  // 4. Screen Sharing using Screen Capture API
+  // 4. Real-time Active Speaker Audio Level Monitoring
+  useEffect(() => {
+    if (!localStream || isAudioMuted) {
+      if (isLocalSpeaking) {
+        setIsLocalSpeaking(false);
+        if (socketRef.current) {
+          socketRef.current.emit('speaking-changed', { isSpeaking: false });
+        }
+      }
+      if (audioIntervalRef.current) {
+        clearInterval(audioIntervalRef.current);
+        audioIntervalRef.current = null;
+      }
+      return;
+    }
+
+    const audioTracks = localStream.getAudioTracks();
+    if (audioTracks.length === 0 || !audioTracks[0].enabled) {
+      setIsLocalSpeaking(false);
+      return;
+    }
+
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+
+      const audioCtx = new AudioCtx();
+      audioContextRef.current = audioCtx;
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      analyserRef.current = analyser;
+
+      const source = audioCtx.createMediaStreamSource(localStream);
+      source.connect(analyser);
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      let wasSpeaking = false;
+
+      audioIntervalRef.current = setInterval(() => {
+        if (!analyserRef.current) return;
+        analyserRef.current.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          sum += dataArray[i];
+        }
+        const average = sum / dataArray.length;
+        const speakingNow = average > 14;
+
+        if (speakingNow !== wasSpeaking) {
+          wasSpeaking = speakingNow;
+          setIsLocalSpeaking(speakingNow);
+          if (socketRef.current) {
+            socketRef.current.emit('speaking-changed', { isSpeaking: speakingNow });
+          }
+        }
+      }, 150);
+    } catch (err) {
+      console.warn('[WebAudio] Audio analyzer setup note:', err);
+    }
+
+    return () => {
+      if (audioIntervalRef.current) {
+        clearInterval(audioIntervalRef.current);
+        audioIntervalRef.current = null;
+      }
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close().catch(() => {});
+        audioContextRef.current = null;
+      }
+    };
+  }, [localStream, isAudioMuted, isLocalSpeaking]);
+
+  // 5. Screen Sharing using Screen Capture API
   const startScreenShare = async () => {
     try {
       const displayStream = await navigator.mediaDevices.getDisplayMedia({
@@ -428,7 +573,7 @@ export function useWebRTC(meetingCode: string) {
     }
   };
 
-  // 5. In-Meeting Recording using MediaRecorder
+  // 6. In-Meeting Recording using MediaRecorder
   const startRecording = () => {
     if (!localStream) return;
 
@@ -476,6 +621,28 @@ export function useWebRTC(meetingCode: string) {
     }
   };
 
+  const emitLiveCaption = useCallback((text: string, timestamp: string) => {
+    if (!text.trim() || !user) return;
+    const speakerName = user.name || 'You';
+    setLiveCaptions((prev) => [
+      ...prev.slice(-49),
+      { speaker: speakerName, text: text.trim(), time: timestamp }
+    ]);
+    if (socketRef.current) {
+      socketRef.current.emit('live-caption', {
+        speakerName,
+        text: text.trim(),
+        timestamp
+      });
+    }
+  }, [user]);
+
+  const emitEndMeeting = useCallback(() => {
+    if (socketRef.current) {
+      socketRef.current.emit('end-meeting');
+    }
+  }, []);
+
   return {
     localStream,
     remotePeers: Array.from(remotePeers.values()),
@@ -486,6 +653,10 @@ export function useWebRTC(meetingCode: string) {
     stopScreenShare,
     startRecording,
     stopRecording,
-    liveCaptions
+    liveCaptions,
+    isLocalSpeaking,
+    meetingEndedByHost,
+    emitLiveCaption,
+    emitEndMeeting
   };
 }

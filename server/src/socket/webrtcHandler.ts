@@ -10,6 +10,7 @@ interface RoomParticipant {
   isMuted: boolean;
   isVideoOff: boolean;
   isSharingScreen: boolean;
+  isSpeaking?: boolean;
 }
 
 // In-memory registry of active participants per meeting code
@@ -29,6 +30,19 @@ export const setupWebRtcHandlers = (io: Server, socket: Socket): void => {
       }
 
       const currentRoom = roomParticipants.get(normalizedCode)!;
+
+      // Handle reconnection: clean up old stale socket if user is re-joining
+      for (const [sId, p] of currentRoom.entries()) {
+        if (p.userId === userId && sId !== socket.id) {
+          currentRoom.delete(sId);
+          socket.to(normalizedCode).emit('user-disconnected', {
+            socketId: sId,
+            userName: p.userName
+          });
+          console.log(`[Socket] Replaced stale session for user ${userName} (${sId} -> ${socket.id})`);
+        }
+      }
+
       const newParticipant: RoomParticipant = {
         socketId: socket.id,
         userId,
@@ -109,6 +123,22 @@ export const setupWebRtcHandlers = (io: Server, socket: Socket): void => {
     }
   });
 
+  // Active Speaker audio activity relay
+  socket.on('speaking-changed', (data: { isSpeaking: boolean }) => {
+    const meetingCode = (socket as any).meetingCode;
+    if (meetingCode && roomParticipants.has(meetingCode)) {
+      const room = roomParticipants.get(meetingCode)!;
+      const participant = room.get(socket.id);
+      if (participant) {
+        participant.isSpeaking = data.isSpeaking;
+        socket.to(meetingCode).emit('peer-speaking', {
+          socketId: socket.id,
+          isSpeaking: data.isSpeaking
+        });
+      }
+    }
+  });
+
   // Screen Sharing Status Relay
   socket.on('toggle-screen-share', (data: { isSharing: boolean }) => {
     const meetingCode = (socket as any).meetingCode;
@@ -135,6 +165,27 @@ export const setupWebRtcHandlers = (io: Server, socket: Socket): void => {
         userName: data.userName,
         emoji: data.emoji
       });
+    }
+  });
+
+  // Live Caption / Speech Relay
+  socket.on('live-caption', (data: { text: string; speakerName: string; timestamp: string }) => {
+    const meetingCode = (socket as any).meetingCode;
+    if (meetingCode) {
+      socket.to(meetingCode).emit('new-live-caption', {
+        socketId: socket.id,
+        speakerName: data.speakerName,
+        text: data.text,
+        timestamp: data.timestamp
+      });
+    }
+  });
+
+  // Host ends meeting for everyone relay
+  socket.on('end-meeting', () => {
+    const meetingCode = (socket as any).meetingCode;
+    if (meetingCode) {
+      socket.to(meetingCode).emit('meeting-ended');
     }
   });
 

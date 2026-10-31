@@ -13,6 +13,9 @@ import { StorageService } from './services/storageService.js';
 export const createApp = (): express.Application => {
   const app = express();
 
+  // Trust reverse proxy (Render, Vercel, Nginx) for accurate client IP and protocol detection
+  app.set('trust proxy', 1);
+
   // Security Middleware
   app.use(
     helmet({

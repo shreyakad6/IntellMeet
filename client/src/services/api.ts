@@ -1,4 +1,20 @@
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+const RAW_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '');
+const API_URL = RAW_URL.startsWith('http')
+  ? (RAW_URL.endsWith('/api') ? RAW_URL : `${RAW_URL}/api`)
+  : (RAW_URL.startsWith('/') ? RAW_URL : `/${RAW_URL}`);
+
+export const getSocketUrl = (): string => {
+  if (import.meta.env.VITE_WS_URL) {
+    return import.meta.env.VITE_WS_URL.replace(/\/+$/, '');
+  }
+  if (import.meta.env.VITE_API_URL) {
+    const raw = import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '').replace(/\/+$/, '');
+    if (raw.startsWith('http://') || raw.startsWith('https://')) {
+      return raw;
+    }
+  }
+  return '/';
+};
 
 export class ApiError extends Error {
   statusCode: number;
@@ -19,7 +35,8 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     ...(options.headers as Record<string, string>)
   };
 
-  const response = await fetch(`${API_URL}${endpoint}`, {
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const response = await fetch(`${API_URL}${cleanEndpoint}`, {
     ...options,
     headers
   });

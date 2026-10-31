@@ -15,6 +15,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
+import { getSocketUrl } from '../services/api.js';
 import { Button } from '../components/ui/Button.js';
 import { Badge } from '../components/ui/Badge.js';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card.js';
@@ -50,7 +51,7 @@ export function KanbanPage() {
 
   // Socket for real-time task sync
   useEffect(() => {
-    const socketUrl = import.meta.env.VITE_WS_URL || '/';
+    const socketUrl = getSocketUrl();
     const socket: Socket = io(socketUrl, { transports: ['websocket', 'polling'] });
     socket.emit('join-workspace', 'default');
 

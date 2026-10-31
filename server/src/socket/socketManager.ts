@@ -11,7 +11,28 @@ let io: Server | null = null;
 export const initSocketServer = (httpServer: HttpServer): Server => {
   io = new Server(httpServer, {
     cors: {
-      origin: [config.CLIENT_URL, 'http://localhost:5173', 'http://127.0.0.1:5173'],
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        const allowedOrigins = [
+          config.CLIENT_URL,
+          'http://localhost:5173',
+          'http://127.0.0.1:5173',
+          'http://localhost:5000',
+          'http://localhost'
+        ];
+        if (
+          allowedOrigins.includes(origin) ||
+          origin.endsWith('.loca.lt') ||
+          origin.endsWith('.ngrok-free.app') ||
+          origin.endsWith('.vercel.app') ||
+          origin.endsWith('.onrender.com') ||
+          origin.endsWith('.railway.app') ||
+          config.NODE_ENV !== 'production'
+        ) {
+          return callback(null, true);
+        }
+        return callback(null, true);
+      },
       methods: ['GET', 'POST'],
       credentials: true
     },

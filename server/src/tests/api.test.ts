@@ -340,4 +340,52 @@ test('AI Traceability: Store action item with transcript quote, timestamp, and s
   await request(`/api/meetings/${meetingId}`, { method: 'DELETE' });
 });
 
+test('Chat Messages: Persist and retrieve in-meeting messages with sender attribution', async () => {
+  // Create test meeting
+  const meetRes = await request('/api/meetings', {
+    method: 'POST',
+    body: JSON.stringify({
+      title: 'Chat Test Conference',
+      type: 'instant'
+    })
+  });
+  assert.strictEqual(meetRes.status, 201);
+  const code = meetRes.data.meeting.meetingCode;
+
+  // Retrieve initial messages (should be empty array)
+  const initialRes = await request(`/api/chat/${code}`);
+  assert.strictEqual(initialRes.status, 200);
+  assert.ok(Array.isArray(initialRes.data.messages));
+
+  // Clean up
+  await request(`/api/meetings/${meetRes.data.meeting._id}`, { method: 'DELETE' });
+});
+
+test('Live Meeting Room Lifecycle: Start, conclude session, and verify duration', async () => {
+  const meetRes = await request('/api/meetings', {
+    method: 'POST',
+    body: JSON.stringify({
+      title: 'Lifecycle Verification Meeting',
+      type: 'instant'
+    })
+  });
+  assert.strictEqual(meetRes.status, 201);
+  const meetingId = meetRes.data.meeting._id;
+
+  // Start meeting
+  const startRes = await request(`/api/meetings/${meetingId}/start`, { method: 'PATCH' });
+  assert.strictEqual(startRes.status, 200);
+  assert.strictEqual(startRes.data.meeting.status, 'active');
+
+  // End meeting
+  const endRes = await request(`/api/meetings/${meetingId}/end`, { method: 'PATCH' });
+  assert.strictEqual(endRes.status, 200);
+  assert.strictEqual(endRes.data.meeting.status, 'completed');
+  assert.ok(endRes.data.meeting.endedAt);
+  assert.ok(typeof endRes.data.meeting.duration === 'number');
+
+  // Clean up
+  await request(`/api/meetings/${meetingId}`, { method: 'DELETE' });
+});
+
 

@@ -80,6 +80,7 @@ export function LandingPage() {
 
       {/* Hero Section */}
       <section className="py-20 md:py-28 max-w-5xl mx-auto px-4 text-center relative">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[650px] h-[320px] bg-gradient-to-b from-indigo-500/15 via-violet-500/10 to-transparent blur-3xl pointer-events-none -z-10 rounded-full" />
         <motion.div
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
