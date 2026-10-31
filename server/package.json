@@ -10,6 +10,7 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "seed": "tsx src/scripts/seed.ts",
+    "seed:prod": "tsx src/scripts/seedProduction.ts",
     "test": "node --test dist/tests/*.js || tsx --test src/tests/api.test.ts"
   },
   "dependencies": {
