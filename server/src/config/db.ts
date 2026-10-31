@@ -2,19 +2,22 @@ import mongoose from 'mongoose';
 import { config } from './env.js';
 
 let isConnected = false;
+let isConnecting = false;
 
 export const connectDB = async (): Promise<void> => {
-  if (isConnected) {
+  if (isConnected || isConnecting) {
     return;
   }
 
+  isConnecting = true;
   try {
     const conn = await mongoose.connect(config.MONGODB_URI, {
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 10000,
       autoIndex: true
     });
 
     isConnected = true;
+    isConnecting = false;
     console.log(`[MongoDB] Connected successfully to host: ${conn.connection.host}, database: ${conn.connection.name}`);
 
     mongoose.connection.on('error', (err) => {
@@ -24,10 +27,25 @@ export const connectDB = async (): Promise<void> => {
     mongoose.connection.on('disconnected', () => {
       console.warn('[MongoDB] Disconnected. Attempting reconnection...');
       isConnected = false;
+      setTimeout(() => {
+        if (!isConnected && mongoose.connection.readyState === 0) {
+          connectDB().catch(() => {});
+        }
+      }, 5000);
     });
-  } catch (error) {
-    console.error('[MongoDB] Initial connection error:', error);
-    // Don't kill process immediately to allow graceful status reporting
+  } catch (error: any) {
+    isConnected = false;
+    isConnecting = false;
+    console.error('[MongoDB] Connection attempt failed:', error.message || error);
+    
+    // Auto-retry connection in background after 10s
+    setTimeout(() => {
+      if (!isConnected && mongoose.connection.readyState === 0) {
+        console.log('[MongoDB] Retrying database connection...');
+        connectDB().catch(() => {});
+      }
+    }, 10000);
+
     throw error;
   }
 };
