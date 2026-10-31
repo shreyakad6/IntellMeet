@@ -7,22 +7,16 @@ import { config } from './config/env.js';
 
 const startServer = async () => {
   try {
-    // 1. Connect to MongoDB
-    await connectDB();
-
-    // 2. Initialize Cache layer (Redis or in-memory fallback)
-    await initRedis();
-
-    // 3. Initialize Express App
+    // 1. Initialize Express App
     const app = createApp();
 
-    // 4. Create HTTP Server
+    // 2. Create HTTP Server
     const httpServer = http.createServer(app);
 
-    // 5. Initialize Socket.io Server for WebRTC signaling, Chat, and Real-time events
+    // 3. Initialize Socket.io Server for WebRTC signaling, Chat, and Real-time events
     initSocketServer(httpServer);
 
-    // 6. Listen
+    // 4. Start HTTP Server first so platform port binding & health probes succeed immediately
     httpServer.listen(config.PORT, () => {
       console.log('====================================================');
       console.log(`🚀 IntellMeet Server running in ${config.NODE_ENV} mode`);
@@ -32,6 +26,16 @@ const startServer = async () => {
       console.log(`🩺 Health check at http://localhost:${config.PORT}/health`);
       console.log(`🤖 AI Status: ${config.DEMO_MODE ? 'Demo Mode Active (No API key needed)' : 'OpenAI Production Connected'}`);
       console.log('====================================================');
+    });
+
+    // 5. Connect to MongoDB (with retry handling)
+    connectDB().catch((err) => {
+      console.error('[Server] Initial MongoDB connection error (will retry):', err.message);
+    });
+
+    // 6. Initialize Cache layer (Redis or in-memory fallback)
+    initRedis().catch((err) => {
+      console.warn('[Server] Redis initialization note:', err.message);
     });
 
     // Graceful shutdown handling
