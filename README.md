@@ -11,7 +11,7 @@
 [![Groq Whisper](https://img.shields.io/badge/STT-Groq%20Whisper-F55036.svg)](https://groq.com)
 [![MongoDB](https://img.shields.io/badge/Database-MongoDB%20v7.0-47A248.svg)](https://www.mongodb.com)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com)
-[![Tests Passing](https://img.shields.io/badge/Tests-16%2F16%20Passing-brightgreen.svg)](https://nodejs.org/api/test.html)
+[![Tests Passing](https://img.shields.io/badge/Tests-18%2F18%20Passing-brightgreen.svg)](https://nodejs.org/api/test.html)
 
 **IntellMeet** is an enterprise-grade, real-time video conferencing and meeting intelligence platform. It couples ultra-low latency WebRTC peer-to-peer audio/video streaming with automated AI meeting assistance (automated speech-to-text transcription, executive summaries, decision extraction, and Kanban task conversion).
 
@@ -19,7 +19,22 @@ The user interface is crafted in a **Fathom AI-inspired design aesthetic**: mini
 
 ---
 
+## 🌐 Live Production Deployment
+
+IntellMeet is deployed and publicly accessible in production across modern cloud infrastructure:
+
+| Component | Platform | Production Endpoint | Status |
+|---|---|---|---|
+| **Frontend Web App** | **Vercel** | [https://intell-meet-gilt.vercel.app](https://intell-meet-gilt.vercel.app) | 🟢 Live / HTTPS |
+| **Backend API & WebSockets** | **Render** | [https://intellmeet-backend-83u2.onrender.com](https://intellmeet-backend-83u2.onrender.com) | 🟢 Live / HTTPS |
+| **Health Check Probe** | **Render** | [https://intellmeet-backend-83u2.onrender.com/health](https://intellmeet-backend-83u2.onrender.com/health) | 🟢 `status: UP` |
+| **Prometheus Metrics** | **Render** | [https://intellmeet-backend-83u2.onrender.com/metrics](https://intellmeet-backend-83u2.onrender.com/metrics) | 🟢 200 OK |
+| **CI/CD Automation** | **GitHub Actions** | [https://github.com/shreyakad6/IntellMeet/actions](https://github.com/shreyakad6/IntellMeet/actions) | 🟢 Passed in 32s |
+
+---
+
 ## 📑 Table of Contents
+- [Live Production Deployment](#-live-production-deployment)
 - [Key Features](#-key-features)
 - [System Architecture (Mermaid)](#-system-architecture)
 - [Documentation Hub](#-documentation-hub)
@@ -218,27 +233,29 @@ Run the automated tests:
 npm test --prefix server
 ```
 
-### Test Results (16 Passed / 0 Failed)
+### Test Results (18 Passed / 0 Failed)
 
 ```
-✔ GET /health returns status UP and service statuses (66.2ms)
-✔ Authentication: Register new user (165.6ms)
-✔ Authentication: Login with valid credentials (169.8ms)
-✔ Protected Routes: Reject access without valid JWT (2.4ms)
-✔ Protected Routes: Verify /api/auth/me with bearer token (7.9ms)
-✔ Meeting Management: Create new meeting and verify code generation (26.9ms)
-✔ Meeting Management: Retrieve meeting by meeting code (23.9ms)
-✔ Action Items: Create and list action items linked to meeting (27.1ms)
-✔ Workspace & Task Management: Create workspace and kanban task (35.5ms)
-✔ Error Handling: Return 400 Bad Request on invalid ObjectId format (CastError) (6.2ms)
-✔ Validation: Reject registration with missing required fields (2.5ms)
-✔ Meeting Management: Return 404 for non-existent meeting code and valid ObjectId (8.2ms)
-✔ RBAC & Authorization: Prevent unauthorized user from modifying workspaces (96.4ms)
-✔ Meeting Management: Allow host to delete meeting and verify subsequent 404 (13.0ms)
-✔ Analytics: Retrieve dashboard summary and telemetry metrics (33.3ms)
-✔ AI Traceability: Store action item with transcript quote, timestamp, and speaker (48.6ms)
+✔ GET /health returns status UP and service statuses (61.2ms)
+✔ Authentication: Register new user (179.7ms)
+✔ Authentication: Login with valid credentials (174.7ms)
+✔ Protected Routes: Reject access without valid JWT (3.3ms)
+✔ Protected Routes: Verify /api/auth/me with bearer token (6.4ms)
+✔ Meeting Management: Create new meeting and verify code generation (26.8ms)
+✔ Meeting Management: Retrieve meeting by meeting code (24.7ms)
+✔ Action Items: Create and list action items linked to meeting (29.4ms)
+✔ Workspace & Task Management: Create workspace and kanban task (35.8ms)
+✔ Error Handling: Return 400 Bad Request on invalid ObjectId format (CastError) (6.8ms)
+✔ Validation: Reject registration with missing required fields (4.6ms)
+✔ Meeting Management: Return 404 for non-existent meeting code and valid ObjectId (10.5ms)
+✔ RBAC & Authorization: Prevent unauthorized user from modifying workspaces (98.5ms)
+✔ Meeting Management: Allow host to delete meeting and verify subsequent 404 (14.6ms)
+✔ Analytics: Retrieve dashboard summary and telemetry metrics (32.2ms)
+✔ AI Traceability: Store action item with transcript quote, timestamp, and speaker (49.3ms)
+✔ Chat Messages: Persist and retrieve in-meeting messages with sender attribution (26.7ms)
+✔ Live Meeting Room Lifecycle: Start, conclude session, and verify duration (38.0ms)
 
-ℹ tests 16 | pass 16 | fail 0 | duration_ms 1559.7ms
+ℹ tests 18 | pass 18 | fail 0 | duration_ms 2302.0ms
 ```
 
 ---
