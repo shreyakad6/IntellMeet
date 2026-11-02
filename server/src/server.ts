@@ -24,7 +24,7 @@ const startServer = async () => {
       console.log(`🔌 WebRTC Signaling & Socket.io ready`);
       console.log(`📊 Prometheus metrics at http://localhost:${config.PORT}/metrics`);
       console.log(`🩺 Health check at http://localhost:${config.PORT}/health`);
-      console.log(`🤖 AI Status: ${config.DEMO_MODE ? 'Demo Mode Active (No API key needed)' : 'OpenAI Production Connected'}`);
+      console.log(`🤖 AI Status: ${config.DEMO_MODE ? 'Resilient Local Fallback Active' : 'Production AI Model Connected'}`);
       console.log('====================================================');
     });
 

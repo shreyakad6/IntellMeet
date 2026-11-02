@@ -27,7 +27,7 @@ const seedDatabase = async () => {
     await Notification.deleteMany({});
     await Message.deleteMany({});
 
-    console.log('[Seed] Creating demo users...');
+    console.log('[Seed] Creating enterprise team members...');
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash('Password123!', salt);
 
@@ -80,7 +80,7 @@ const seedDatabase = async () => {
       ]
     });
 
-    console.log('[Seed] Creating demo meetings...');
+    console.log('[Seed] Creating workspace sessions...');
     // 1. Completed meeting with summary, transcript, and action items
     const completedMeeting = await Meeting.create({
       title: 'Q4 Real-Time WebRTC & Cloud Migration Architecture Sync',
@@ -384,7 +384,7 @@ const seedDatabase = async () => {
 
     console.log('====================================================');
     console.log('✅ SEEDING COMPLETE!');
-    console.log('Demo Accounts:');
+    console.log('Enterprise Accounts:');
     console.log('  Admin:  alex.admin@intellmeet.io  /  Password123!');
     console.log('  Member: sarah.dev@intellmeet.io   /  Password123!');
     console.log('  Member: marcus.ops@intellmeet.io  /  Password123!');

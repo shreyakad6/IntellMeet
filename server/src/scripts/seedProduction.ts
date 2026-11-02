@@ -16,11 +16,11 @@ export const seedProductionSafe = async () => {
     console.log('[SeedProduction] Connecting to MongoDB...');
     await connectDB();
 
-    console.log('[SeedProduction] Checking demo accounts (idempotent upsert)...');
+    console.log('[SeedProduction] Checking enterprise accounts (idempotent upsert)...');
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash('Password123!', salt);
 
-    // 1. Ensure Demo Users
+    // 1. Ensure Enterprise Users
     let userAlex = await User.findOne({ email: 'alex.admin@intellmeet.io' });
     if (!userAlex) {
       userAlex = await User.create({
@@ -31,9 +31,9 @@ export const seedProductionSafe = async () => {
         department: 'Engineering Leadership',
         avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
       });
-      console.log('  + Created demo user: Alex Rivera');
+      console.log('  + Created user: Alex Rivera');
     } else {
-      console.log('  * Existing demo user found: Alex Rivera');
+      console.log('  * Existing user found: Alex Rivera');
     }
 
     let userSarah = await User.findOne({ email: 'sarah.dev@intellmeet.io' });
@@ -46,9 +46,9 @@ export const seedProductionSafe = async () => {
         department: 'Frontend Architecture',
         avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80'
       });
-      console.log('  + Created demo user: Sarah Chen');
+      console.log('  + Created user: Sarah Chen');
     } else {
-      console.log('  * Existing demo user found: Sarah Chen');
+      console.log('  * Existing user found: Sarah Chen');
     }
 
     let userMarcus = await User.findOne({ email: 'marcus.ops@intellmeet.io' });
@@ -61,9 +61,9 @@ export const seedProductionSafe = async () => {
         department: 'Cloud & Infrastructure',
         avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80'
       });
-      console.log('  + Created demo user: Marcus Vance');
+      console.log('  + Created user: Marcus Vance');
     } else {
-      console.log('  * Existing demo user found: Marcus Vance');
+      console.log('  * Existing user found: Marcus Vance');
     }
 
     let userPriya = await User.findOne({ email: 'priya.sec@intellmeet.io' });
@@ -76,12 +76,12 @@ export const seedProductionSafe = async () => {
         department: 'Security & Compliance',
         avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80'
       });
-      console.log('  + Created demo user: Priya Patel');
+      console.log('  + Created user: Priya Patel');
     } else {
-      console.log('  * Existing demo user found: Priya Patel');
+      console.log('  * Existing user found: Priya Patel');
     }
 
-    // 2. Ensure Demo Workspace
+    // 2. Ensure Enterprise Workspace
     let workspace = await Workspace.findOne({ name: 'Core Platform Engineering' });
     if (!workspace) {
       workspace = await Workspace.create({
