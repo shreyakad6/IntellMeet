@@ -8,8 +8,10 @@ const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' }
-  ]
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun.cloudflare.com:3478' }
+  ],
+  iceCandidatePoolSize: 10
 };
 
 export interface RemotePeer {
@@ -48,6 +50,8 @@ export function useWebRTC(meetingCode: string) {
 
   const socketRef = useRef<Socket | null>(null);
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
+  const pendingIceCandidates = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
+  const remoteStreams = useRef<Map<string, MediaStream>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
   const screenTrackRef = useRef<MediaStreamTrack | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -56,13 +60,17 @@ export function useWebRTC(meetingCode: string) {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const audioIntervalRef = useRef<any>(null);
 
-  // 1. Initialize Local Media Stream
+  // 1. Initialize Local Media Stream with High-Fidelity Audio Constraints
   const initLocalMedia = useCallback(async () => {
     try {
       setMediaError(null);
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: true
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
       });
       localStreamRef.current = stream;
       setLocalStream(stream);
@@ -71,7 +79,13 @@ export function useWebRTC(meetingCode: string) {
       console.warn('[WebRTC] Camera/Mic access warning:', err.name, err.message);
       // Fallback: try audio only, or empty stream for viewing
       try {
-        const audioOnlyStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const audioOnlyStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
+        });
         localStreamRef.current = audioOnlyStream;
         setLocalStream(audioOnlyStream);
         setVideoOff(true);
@@ -89,7 +103,7 @@ export function useWebRTC(meetingCode: string) {
     }
   }, [setAudioMuted, setVideoOff]);
 
-  // Create Peer Connection helper
+  // Create Peer Connection helper with track aggregation and ICE queue
   const createPeerConnection = useCallback((remoteSocketId: string, stream: MediaStream) => {
     if (peerConnections.current.has(remoteSocketId)) {
       return peerConnections.current.get(remoteSocketId)!;
@@ -97,6 +111,13 @@ export function useWebRTC(meetingCode: string) {
 
     const pc = new RTCPeerConnection(ICE_SERVERS);
     peerConnections.current.set(remoteSocketId, pc);
+
+    if (!pendingIceCandidates.current.has(remoteSocketId)) {
+      pendingIceCandidates.current.set(remoteSocketId, []);
+    }
+    if (!remoteStreams.current.has(remoteSocketId)) {
+      remoteStreams.current.set(remoteSocketId, new MediaStream());
+    }
 
     // Add local tracks to peer connection
     stream.getTracks().forEach((track) => {
@@ -109,21 +130,39 @@ export function useWebRTC(meetingCode: string) {
         socketRef.current.emit('signal', {
           to: remoteSocketId,
           type: 'ice-candidate',
-          signal: event.candidate
+          signal: event.candidate.toJSON ? event.candidate.toJSON() : event.candidate
         });
       }
     };
 
-    // Handle remote track received
+    // Handle remote track received with multi-track accumulation (audio + video)
     pc.ontrack = (event) => {
-      const remoteStream = event.streams[0] || new MediaStream([event.track]);
+      let peerStream = remoteStreams.current.get(remoteSocketId);
+      if (!peerStream) {
+        peerStream = new MediaStream();
+        remoteStreams.current.set(remoteSocketId, peerStream);
+      }
+
+      // Add track to peer stream if not already present
+      if (!peerStream.getTracks().some((t) => t.id === event.track.id)) {
+        peerStream.addTrack(event.track);
+      }
+
+      event.track.onended = () => {
+        peerStream?.removeTrack(event.track);
+      };
+
+      // Clone media stream reference to trigger React re-render
+      const clonedStream = new MediaStream(peerStream.getTracks());
+      remoteStreams.current.set(remoteSocketId, clonedStream);
+
       setRemotePeers((prev) => {
         const next = new Map(prev);
         const existing = next.get(remoteSocketId);
         if (existing) {
           next.set(remoteSocketId, {
             ...existing,
-            stream: remoteStream
+            stream: clonedStream
           });
         }
         return next;
@@ -134,6 +173,8 @@ export function useWebRTC(meetingCode: string) {
       if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
         pc.close();
         peerConnections.current.delete(remoteSocketId);
+        pendingIceCandidates.current.delete(remoteSocketId);
+        remoteStreams.current.delete(remoteSocketId);
       }
     };
 
@@ -197,10 +238,13 @@ export function useWebRTC(meetingCode: string) {
             isSpeaking: false
           });
 
-          // Create WebRTC Offer
+          // Create WebRTC Offer with explicit audio & video receiving flags
           const pc = createPeerConnection(peer.socketId, stream);
           try {
-            const offer = await pc.createOffer();
+            const offer = await pc.createOffer({
+              offerToReceiveAudio: true,
+              offerToReceiveVideo: true
+            });
             await pc.setLocalDescription(offer);
             socket.emit('signal', {
               to: peer.socketId,
@@ -229,6 +273,8 @@ export function useWebRTC(meetingCode: string) {
               if (oldPc) {
                 oldPc.close();
                 peerConnections.current.delete(existingSocketId);
+                pendingIceCandidates.current.delete(existingSocketId);
+                remoteStreams.current.delete(existingSocketId);
               }
               next.delete(existingSocketId);
             }
@@ -249,7 +295,7 @@ export function useWebRTC(meetingCode: string) {
         });
       });
 
-      // Signaling message received
+      // Signaling message received (Offer, Answer, ICE candidate)
       socket.on('signal', async (data: { from: string; type: string; signal: any }) => {
         const { from, type, signal } = data;
         let pc = peerConnections.current.get(from);
@@ -260,6 +306,18 @@ export function useWebRTC(meetingCode: string) {
         try {
           if (type === 'offer') {
             await pc.setRemoteDescription(new RTCSessionDescription(signal));
+
+            // Drain any pending ICE candidates that arrived before remoteDescription
+            const queued = pendingIceCandidates.current.get(from) || [];
+            pendingIceCandidates.current.set(from, []);
+            for (const cand of queued) {
+              try {
+                await pc.addIceCandidate(new RTCIceCandidate(cand));
+              } catch (e) {
+                console.warn('[WebRTC] Error adding queued candidate on offer:', e);
+              }
+            }
+
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
             socket.emit('signal', {
@@ -269,8 +327,26 @@ export function useWebRTC(meetingCode: string) {
             });
           } else if (type === 'answer') {
             await pc.setRemoteDescription(new RTCSessionDescription(signal));
+
+            // Drain any pending ICE candidates that arrived before answer remoteDescription
+            const queued = pendingIceCandidates.current.get(from) || [];
+            pendingIceCandidates.current.set(from, []);
+            for (const cand of queued) {
+              try {
+                await pc.addIceCandidate(new RTCIceCandidate(cand));
+              } catch (e) {
+                console.warn('[WebRTC] Error adding queued candidate on answer:', e);
+              }
+            }
           } else if (type === 'ice-candidate') {
-            await pc.addIceCandidate(new RTCIceCandidate(signal));
+            if (!pc.remoteDescription || !pc.remoteDescription.type) {
+              // Remote description not set yet: queue this candidate to prevent dropped packet error!
+              const queue = pendingIceCandidates.current.get(from) || [];
+              queue.push(signal);
+              pendingIceCandidates.current.set(from, queue);
+            } else {
+              await pc.addIceCandidate(new RTCIceCandidate(signal));
+            }
           }
         } catch (err) {
           console.warn('[WebRTC] Signaling error handling signal:', err);
@@ -360,6 +436,9 @@ export function useWebRTC(meetingCode: string) {
           pc.close();
           peerConnections.current.delete(data.socketId);
         }
+        pendingIceCandidates.current.delete(data.socketId);
+        remoteStreams.current.delete(data.socketId);
+
         setRemotePeers((prev) => {
           const next = new Map(prev);
           next.delete(data.socketId);
@@ -399,6 +478,9 @@ export function useWebRTC(meetingCode: string) {
       // Close peer connections
       peerConnections.current.forEach((pc) => pc.close());
       peerConnections.current.clear();
+      pendingIceCandidates.current.clear();
+      remoteStreams.current.clear();
+
       // Disconnect socket
       if (socketRef.current) {
         socketRef.current.emit('leave-room');
@@ -416,7 +498,7 @@ export function useWebRTC(meetingCode: string) {
     };
   }, [meetingCode, user, initLocalMedia, createPeerConnection]);
 
-  // 3. Audio/Video Toggle Controls
+  // 3. Audio/Video Toggle Controls (Isolated to avoid cross-triggering)
   useEffect(() => {
     if (localStream) {
       localStream.getAudioTracks().forEach((track) => {
@@ -429,7 +511,7 @@ export function useWebRTC(meetingCode: string) {
         });
       }
     }
-  }, [isAudioMuted, localStream, isVideoOff]);
+  }, [isAudioMuted, localStream]);
 
   useEffect(() => {
     if (localStream) {
@@ -443,7 +525,7 @@ export function useWebRTC(meetingCode: string) {
         });
       }
     }
-  }, [isVideoOff, localStream, isAudioMuted]);
+  }, [isVideoOff, localStream]);
 
   // 4. Real-time Active Speaker Audio Level Monitoring
   useEffect(() => {

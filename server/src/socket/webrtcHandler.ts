@@ -1,5 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import { Meeting } from '../models/Meeting.js';
+import { Transcript } from '../models/Transcript.js';
 
 interface RoomParticipant {
   socketId: string;
@@ -168,16 +169,49 @@ export const setupWebRtcHandlers = (io: Server, socket: Socket): void => {
     }
   });
 
-  // Live Caption / Speech Relay
-  socket.on('live-caption', (data: { text: string; speakerName: string; timestamp: string }) => {
+  // Live Caption / Speech Relay & DB Persistence
+  socket.on('live-caption', async (data: { text: string; speakerName: string; timestamp: string }) => {
     const meetingCode = (socket as any).meetingCode;
-    if (meetingCode) {
+    if (meetingCode && data.text && data.text.trim()) {
       socket.to(meetingCode).emit('new-live-caption', {
         socketId: socket.id,
         speakerName: data.speakerName,
-        text: data.text,
+        text: data.text.trim(),
         timestamp: data.timestamp
       });
+
+      // Persist real-time speech turn directly to database Transcript collection
+      try {
+        const meeting = await Meeting.findOne({ meetingCode });
+        if (meeting) {
+          const entry = {
+            speakerName: data.speakerName || 'Speaker',
+            timestamp: data.timestamp || '00:00',
+            text: data.text.trim(),
+            confidence: 0.98
+          };
+
+          const transcriptDoc = await Transcript.findOneAndUpdate(
+            { meetingId: meeting._id },
+            {
+              $setOnInsert: { meetingId: meeting._id, isDemoMode: false },
+              $push: { entries: entry }
+            },
+            { upsert: true, new: true }
+          );
+
+          if (transcriptDoc) {
+            transcriptDoc.fullText = transcriptDoc.entries
+              .map((e) => `[${e.timestamp}] ${e.speakerName}: ${e.text}`)
+              .join('\n');
+            await transcriptDoc.save();
+            meeting.hasTranscript = true;
+            await meeting.save();
+          }
+        }
+      } catch (err: any) {
+        console.error('[Socket] Error persisting live-caption to Transcript:', err.message);
+      }
     }
   });
 

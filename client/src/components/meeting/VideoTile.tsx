@@ -30,13 +30,31 @@ export function VideoTile({
   className
 }: VideoTileProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [avatarLoadError, setAvatarLoadError] = useState(false);
 
   useEffect(() => {
-    if (videoRef.current && stream) {
-      videoRef.current.srcObject = stream;
+    const videoEl = videoRef.current;
+    if (videoEl && stream) {
+      videoEl.srcObject = stream;
+      videoEl.play().catch((err) => {
+        // Autoplay may be restricted until user interaction
+        console.warn('[VideoTile] Video playback note:', err.message);
+      });
     }
   }, [stream]);
+
+  useEffect(() => {
+    // Dedicated unmuted audio element for remote peers guarantees audio output
+    // even if video tracks are disabled or video element is hidden
+    const audioEl = audioRef.current;
+    if (!isLocal && audioEl && stream) {
+      audioEl.srcObject = stream;
+      audioEl.play().catch((err) => {
+        console.warn('[VideoTile] Remote audio autoplay note:', err.message);
+      });
+    }
+  }, [stream, isLocal]);
 
   const hasVideoTrack =
     stream &&
@@ -60,6 +78,15 @@ export function VideoTile({
         className
       )}
     >
+      {/* Dedicated Remote Audio Output (Always unmuted, isolated from local) */}
+      {!isLocal && (
+        <audio
+          ref={audioRef}
+          autoPlay
+          playsInline
+        />
+      )}
+
       {/* Video Stream Element */}
       <video
         ref={videoRef}

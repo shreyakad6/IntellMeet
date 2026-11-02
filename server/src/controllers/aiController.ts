@@ -4,9 +4,143 @@ import { Transcript } from '../models/Transcript.js';
 import { MeetingSummary } from '../models/MeetingSummary.js';
 import { ActionItem } from '../models/ActionItem.js';
 import { User } from '../models/User.js';
+import { Message } from '../models/Message.js';
 import { Notification } from '../models/Notification.js';
 import { AiService } from '../services/aiService.js';
 import { AuthenticatedRequest } from '../middleware/auth.js';
+
+/**
+ * Helper to parse custom text into structured transcript entries
+ */
+function parseCustomTranscript(text: string, defaultSpeaker = 'Presenter') {
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+  const entryRegex = /^(?:\[?(\d{1,2}:\d{2}(?::\d{2})?)\]?\s*)?(?:([^:]+):\s*)?(.*)$/;
+  const entries: { speakerName: string; timestamp: string; text: string; confidence: number }[] = [];
+
+  for (const line of lines) {
+    const match = line.match(entryRegex);
+    if (match && match[3]) {
+      const timestamp = match[1] || '00:00';
+      const speakerName = (match[2] && match[2].trim()) || defaultSpeaker;
+      const content = match[3].trim();
+      if (content) {
+        entries.push({
+          speakerName,
+          timestamp,
+          text: content,
+          confidence: 0.99
+        });
+      }
+    } else {
+      entries.push({
+        speakerName: defaultSpeaker,
+        timestamp: '00:00',
+        text: line,
+        confidence: 0.99
+      });
+    }
+  }
+
+  return entries.length > 0
+    ? entries
+    : [
+        {
+          speakerName: defaultSpeaker,
+          timestamp: '00:00',
+          text,
+          confidence: 0.99
+        }
+      ];
+}
+
+/**
+ * Resolves or compiles a transcript for a meeting from:
+ * 1. Existing MongoDB Transcript document
+ * 2. Custom transcript provided in request body
+ * 3. Meeting chat messages from the live session
+ * 4. Audio transcription (if audioPath or DEMO_MODE available)
+ */
+async function resolveMeetingTranscript(
+  meeting: any,
+  customTranscript?: string,
+  audioPath?: string,
+  defaultSpeaker = 'Presenter'
+) {
+  // 1. Check existing Transcript with valid text
+  let transcript = await Transcript.findOne({ meetingId: meeting._id });
+  if (transcript && transcript.fullText && transcript.fullText.trim()) {
+    return transcript;
+  }
+
+  // 2. Custom transcript provided in request body
+  if (customTranscript && customTranscript.trim()) {
+    const entries = parseCustomTranscript(customTranscript, defaultSpeaker);
+    transcript = await Transcript.findOneAndUpdate(
+      { meetingId: meeting._id },
+      {
+        meetingId: meeting._id,
+        entries,
+        fullText: customTranscript.trim(),
+        isDemoMode: false,
+        audioDurationSeconds: meeting.duration || 600
+      },
+      { upsert: true, new: true }
+    );
+    meeting.hasTranscript = true;
+    await meeting.save();
+    return transcript;
+  }
+
+  // 3. In-meeting chat messages aggregation
+  const chatMessages = await Message.find({ meetingId: meeting._id, isSystem: false }).sort({ timestamp: 1 });
+  if (chatMessages.length > 0) {
+    const entries = chatMessages.map((msg) => ({
+      speakerName: msg.senderName || 'Participant',
+      timestamp: new Date(msg.timestamp).toISOString().slice(11, 16),
+      text: msg.content,
+      confidence: 1.0
+    }));
+    const fullText = chatMessages
+      .map((msg) => `[${new Date(msg.timestamp).toISOString().slice(11, 16)}] ${msg.senderName}: ${msg.content}`)
+      .join('\n');
+
+    transcript = await Transcript.findOneAndUpdate(
+      { meetingId: meeting._id },
+      {
+        meetingId: meeting._id,
+        entries,
+        fullText,
+        isDemoMode: false,
+        audioDurationSeconds: meeting.duration || 600
+      },
+      { upsert: true, new: true }
+    );
+    meeting.hasTranscript = true;
+    await meeting.save();
+    return transcript;
+  }
+
+  // 4. Audio transcription via Whisper or DEMO_MODE fallback
+  try {
+    const transcriptData = await AiService.transcribeAudio(audioPath);
+    transcript = await Transcript.findOneAndUpdate(
+      { meetingId: meeting._id },
+      {
+        meetingId: meeting._id,
+        entries: transcriptData.entries,
+        fullText: transcriptData.fullText,
+        isDemoMode: transcriptData.isDemoMode,
+        audioDurationSeconds: meeting.duration || 600
+      },
+      { upsert: true, new: true }
+    );
+    meeting.hasTranscript = true;
+    await meeting.save();
+    return transcript;
+  } catch {
+    return null;
+  }
+}
 
 export const generateMeetingTranscript = async (
   req: AuthenticatedRequest,
@@ -23,38 +157,21 @@ export const generateMeetingTranscript = async (
       return;
     }
 
-    let transcriptData;
-    if (customTranscript) {
-      transcriptData = {
-        fullText: customTranscript,
-        entries: [
-          {
-            speakerName: req.user?.name || 'Presenter',
-            timestamp: '00:00',
-            text: customTranscript,
-            confidence: 0.99
-          }
-        ],
-        isDemoMode: false
-      };
-    } else {
-      transcriptData = await AiService.transcribeAudio(audioPath);
-    }
-
-    const transcript = await Transcript.findOneAndUpdate(
-      { meetingId: meeting._id },
-      {
-        meetingId: meeting._id,
-        entries: transcriptData.entries,
-        fullText: transcriptData.fullText,
-        isDemoMode: transcriptData.isDemoMode,
-        audioDurationSeconds: meeting.duration || 600
-      },
-      { upsert: true, new: true }
+    const transcript = await resolveMeetingTranscript(
+      meeting,
+      customTranscript,
+      audioPath,
+      req.user?.name || 'Presenter'
     );
 
-    meeting.hasTranscript = true;
-    await meeting.save();
+    if (!transcript) {
+      res.status(400).json({
+        success: false,
+        message:
+          'No audio file, speech captions, or meeting chat available for transcription. Please record audio, enable live captions, or provide meeting notes.'
+      });
+      return;
+    }
 
     res.status(200).json({
       success: true,
@@ -73,6 +190,7 @@ export const generateMeetingSummary = async (
 ): Promise<void> => {
   try {
     const { meetingId } = req.params;
+    const { customTranscript } = req.body || {};
 
     const meeting = await Meeting.findById(meetingId);
     if (!meeting) {
@@ -80,19 +198,20 @@ export const generateMeetingSummary = async (
       return;
     }
 
-    // Get or auto-generate transcript
-    let transcript = await Transcript.findOne({ meetingId: meeting._id });
-    if (!transcript) {
-      const transcriptData = await AiService.transcribeAudio();
-      transcript = await Transcript.create({
-        meetingId: meeting._id,
-        entries: transcriptData.entries,
-        fullText: transcriptData.fullText,
-        isDemoMode: transcriptData.isDemoMode,
-        audioDurationSeconds: meeting.duration || 600
+    const transcript = await resolveMeetingTranscript(
+      meeting,
+      customTranscript,
+      undefined,
+      req.user?.name || 'Presenter'
+    );
+
+    if (!transcript || !transcript.fullText || !transcript.fullText.trim()) {
+      res.status(400).json({
+        success: false,
+        message:
+          'No transcript or meeting discussion found to summarize. Please transcribe meeting audio, enable live captions, or provide meeting notes first.'
       });
-      meeting.hasTranscript = true;
-      await meeting.save();
+      return;
     }
 
     const summaryResult = await AiService.generateSummary(transcript.fullText);
@@ -142,6 +261,7 @@ export const extractActionItems = async (
 ): Promise<void> => {
   try {
     const { meetingId } = req.params;
+    const { customTranscript } = req.body || {};
 
     const meeting = await Meeting.findById(meetingId);
     if (!meeting) {
@@ -149,15 +269,20 @@ export const extractActionItems = async (
       return;
     }
 
-    let transcript = await Transcript.findOne({ meetingId: meeting._id });
-    if (!transcript) {
-      const transcriptData = await AiService.transcribeAudio();
-      transcript = await Transcript.create({
-        meetingId: meeting._id,
-        entries: transcriptData.entries,
-        fullText: transcriptData.fullText,
-        isDemoMode: transcriptData.isDemoMode
+    const transcript = await resolveMeetingTranscript(
+      meeting,
+      customTranscript,
+      undefined,
+      req.user?.name || 'Presenter'
+    );
+
+    if (!transcript || !transcript.fullText || !transcript.fullText.trim()) {
+      res.status(400).json({
+        success: false,
+        message:
+          'No transcript or meeting discussion found for action item extraction. Please transcribe audio, record captions, or provide notes.'
       });
+      return;
     }
 
     const { actionItems, isDemoMode } = await AiService.extractActionItems(transcript.fullText);

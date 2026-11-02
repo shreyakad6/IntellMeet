@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert';
 import http from 'node:http';
 import { createApp } from '../app.js';
-import { connectDB } from '../config/db.js';
+import { connectDB, disconnectDB } from '../config/db.js';
 import mongoose from 'mongoose';
 
 let server: http.Server;
@@ -41,7 +41,7 @@ test.after(async () => {
   if (server) {
     server.close();
   }
-  await mongoose.disconnect();
+  await disconnectDB();
 });
 
 test('GET /health returns status UP and service statuses', async () => {
@@ -359,6 +359,75 @@ test('Chat Messages: Persist and retrieve in-meeting messages with sender attrib
 
   // Clean up
   await request(`/api/meetings/${meetRes.data.meeting._id}`, { method: 'DELETE' });
+});
+
+test('Validation: Reject duplicate user registration with 409 Conflict', async () => {
+  const duplicateEmail = `dup_${Date.now()}@intellmeet.io`;
+  // First registration
+  const firstRes = await request('/api/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({
+      name: 'Original User',
+      email: duplicateEmail,
+      password: 'Password123!'
+    })
+  });
+  assert.strictEqual(firstRes.status, 201);
+
+  // Attempt duplicate registration
+  const dupRes = await request('/api/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({
+      name: 'Duplicate User',
+      email: duplicateEmail,
+      password: 'AnotherPassword123!'
+    })
+  });
+  assert.strictEqual(dupRes.status, 409);
+  assert.strictEqual(dupRes.data.success, false);
+});
+
+test('Validation: Reject registration with short password (<6 chars)', async () => {
+  const shortPassRes = await request('/api/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({
+      name: 'Short Pass User',
+      email: `shortpass_${Date.now()}@intellmeet.io`,
+      password: '123'
+    })
+  });
+  assert.strictEqual(shortPassRes.status, 400);
+  assert.strictEqual(shortPassRes.data.success, false);
+});
+
+test('Validation: Reject meeting creation with missing title', async () => {
+  const badMeetRes = await request('/api/meetings', {
+    method: 'POST',
+    body: JSON.stringify({
+      description: 'Missing title'
+    })
+  });
+  assert.strictEqual(badMeetRes.status, 400);
+  assert.strictEqual(badMeetRes.data.success, false);
+});
+
+test('Validation: Reject task creation without workspaceId or title', async () => {
+  const badTaskRes = await request('/api/tasks', {
+    method: 'POST',
+    body: JSON.stringify({
+      description: 'Missing required title and workspace'
+    })
+  });
+  assert.strictEqual(badTaskRes.status, 400);
+  assert.strictEqual(badTaskRes.data.success, false);
+});
+
+test('Notifications: Retrieve user notification list and unread count', async () => {
+  const notifRes = await request('/api/notifications');
+  assert.strictEqual(notifRes.status, 200);
+  assert.strictEqual(notifRes.data.success, true);
+  assert.ok(Array.isArray(notifRes.data.notifications));
+  assert.ok(typeof notifRes.data.unreadCount === 'number');
 });
 
 test('Live Meeting Room Lifecycle: Start, conclude session, and verify duration', async () => {
