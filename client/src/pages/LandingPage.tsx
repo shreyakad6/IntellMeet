@@ -155,14 +155,13 @@ export function LandingPage() {
                 <span className="h-3 w-3 rounded-full bg-amber-500/80"></span>
                 <span className="h-3 w-3 rounded-full bg-emerald-500/80"></span>
                 <span className="text-xs font-mono text-slate-400 pl-3">
-                  IntellMeet Enterprise &bull; Architecture & Product Sync
+                  IntellMeet Architecture & Interface Preview
                 </span>
               </div>
               <div className="flex items-center space-x-2">
-                <Badge variant="success" dot className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[10px]">
-                  Encrypted Mesh Active
+                <Badge variant="outline" className="bg-indigo-500/10 text-indigo-300 border-indigo-500/30 text-[10px] font-mono">
+                  Illustrative Preview
                 </Badge>
-                <span className="text-xs font-mono text-slate-400">00:24:18</span>
               </div>
             </div>
 
@@ -173,12 +172,11 @@ export function LandingPage() {
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center space-x-2">
                     <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
                     </span>
-                    <span className="font-semibold text-slate-200">High-Definition Mesh</span>
+                    <span className="font-semibold text-slate-200">Mesh Audio Visualizer</span>
                   </div>
-                  <span className="text-[10px] font-mono text-emerald-400">18ms Latency</span>
+                  <span className="text-[10px] font-mono text-indigo-400">Illustrative</span>
                 </div>
 
                 <div className="aspect-video rounded-lg bg-slate-950 border border-slate-800/80 flex flex-col items-center justify-center p-4 relative overflow-hidden">
@@ -269,6 +267,11 @@ export function LandingPage() {
                   <span className="text-emerald-400 font-medium">100% Accountable</span>
                 </div>
               </div>
+            </div>
+
+            {/* Illustrative Preview Disclosure */}
+            <div className="pt-3 border-t border-slate-800/60 text-center text-[11px] text-slate-500 font-medium">
+              * Illustrative preview demonstrating WebRTC peer-to-peer mesh architecture, autonomous Whisper transcription, and synchronized Kanban task workflows.
             </div>
           </div>
         </motion.div>
