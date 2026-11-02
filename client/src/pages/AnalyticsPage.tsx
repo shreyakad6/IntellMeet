@@ -109,9 +109,9 @@ export function AnalyticsPage() {
             <div>
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Team Capacity</p>
               <h3 className="text-2xl sm:text-3xl font-bold mt-1 text-foreground tabular-nums">
-                {analytics?.users?.total || 4} Members
+                {analytics?.users?.total || 1} {analytics?.users?.total === 1 ? 'Member' : 'Members'}
               </h3>
-              <p className="text-[11px] text-muted-foreground mt-1">Core Engineering Workspace</p>
+              <p className="text-[11px] text-muted-foreground mt-1">Active Enterprise Workspace</p>
             </div>
             <div className="h-11 w-11 rounded-xl bg-violet-500/10 text-violet-500 flex items-center justify-center border border-violet-500/20">
               <Users className="h-5 w-5" />

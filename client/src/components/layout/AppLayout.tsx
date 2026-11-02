@@ -192,7 +192,7 @@ export function AppLayout() {
         isOpen={isJoinModalOpen}
         onClose={() => setIsJoinModalOpen(false)}
         title="Join Meeting by Code"
-        description="Enter the 9-character room code (e.g. INT-924-817) to enter the lobby."
+        description="Enter the meeting room code to enter the lobby."
       >
         <form onSubmit={handleJoinMeeting} className="space-y-4">
           {joinError && (

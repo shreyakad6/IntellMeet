@@ -241,10 +241,10 @@ export function DashboardPage() {
                     Active Team
                   </p>
                   <h3 className="text-2xl sm:text-3xl font-bold mt-1 text-foreground tabular-nums">
-                    {analytics?.users?.total || 4} Members
+                    {analytics?.users?.total || 1} {analytics?.users?.total === 1 ? 'Member' : 'Members'}
                   </h3>
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    Core Platform Engineering
+                    {user?.department || 'Active Workspace'}
                   </p>
                 </div>
                 <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center border border-primary/20">
@@ -386,9 +386,14 @@ export function DashboardPage() {
                   <MeetingRowSkeleton />
                 </div>
               ) : recentMeetings.length === 0 ? (
-                <div className="p-6 text-center text-xs text-muted-foreground">
-                  No completed sessions yet. Finished meetings will automatically compile AI insights here.
-                </div>
+                <EmptyState
+                  icon={Sparkles}
+                  title="No completed sessions yet"
+                  description="Completed meetings will automatically compile Whisper transcripts, sentiment analysis, and action deliverables here."
+                  actionLabel="Start Instant Meeting"
+                  onAction={handleStartInstantMeeting}
+                  className="my-4 mx-4"
+                />
               ) : (
                 <div className="divide-y divide-border/60">
                   {recentMeetings.map((m) => (
@@ -539,14 +544,21 @@ export function DashboardPage() {
             </CardHeader>
             <CardContent className="p-0">
               <div className="p-4 space-y-2.5">
-                {tasks.slice(0, 3).map((t) => (
-                  <div key={t._id} className="p-2.5 rounded-xl border border-border/80 bg-card/60 text-xs flex items-center justify-between">
-                    <span className="font-medium text-foreground truncate pr-2">{t.title}</span>
-                    <Badge variant={t.status === 'done' ? 'success' : t.status === 'in_progress' ? 'default' : 'secondary'} className="text-[9px]">
-                      {t.status}
-                    </Badge>
+                {tasks.length === 0 ? (
+                  <div className="text-center py-6 text-xs text-muted-foreground">
+                    <ListTodo className="h-5 w-5 mx-auto mb-1.5 opacity-60 text-indigo-400" />
+                    <span>No active tasks on the Kanban board.</span>
                   </div>
-                ))}
+                ) : (
+                  tasks.slice(0, 3).map((t) => (
+                    <div key={t._id} className="p-2.5 rounded-xl border border-border/80 bg-card/60 text-xs flex items-center justify-between">
+                      <span className="font-medium text-foreground truncate pr-2">{t.title}</span>
+                      <Badge variant={t.status === 'done' ? 'success' : t.status === 'in_progress' ? 'default' : 'secondary'} className="text-[9px]">
+                        {t.status}
+                      </Badge>
+                    </div>
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>

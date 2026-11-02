@@ -204,8 +204,29 @@ export function KanbanPage() {
               {/* Task Cards Stack */}
               <div className="flex-1 space-y-3 overflow-y-auto">
                 {colTasks.length === 0 ? (
-                  <div className="h-40 flex flex-col items-center justify-center text-center p-4 border border-dashed border-border rounded-xl text-xs text-muted-foreground">
-                    <span>No tasks in {column.label}</span>
+                  <div className="h-44 flex flex-col items-center justify-center text-center p-4 border border-dashed border-border/80 rounded-xl text-xs text-muted-foreground bg-secondary/20">
+                    <div className="h-8 w-8 rounded-lg bg-secondary/80 flex items-center justify-center mb-2 text-muted-foreground/70">
+                      <KanbanIcon className="h-4 w-4" />
+                    </div>
+                    <span className="font-medium text-foreground/80">No tasks in {column.label}</span>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 max-w-[180px]">
+                      {column.id === 'todo'
+                        ? 'Create a new task or convert from meeting action items.'
+                        : column.id === 'in_progress'
+                        ? 'Advance tasks here when work begins.'
+                        : 'Completed deliverables will appear here.'}
+                    </p>
+                    {column.id === 'todo' && (
+                      <button
+                        onClick={() => {
+                          setStatus('todo');
+                          setIsModalOpen(true);
+                        }}
+                        className="mt-2.5 text-[11px] font-semibold text-primary hover:underline inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        <Plus className="h-3 w-3" /> Add Task
+                      </button>
+                    )}
                   </div>
                 ) : (
                   colTasks.map((task) => (

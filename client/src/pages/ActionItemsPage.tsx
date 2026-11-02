@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   CheckCircle2,
@@ -21,6 +21,7 @@ import { api } from '../services/api.js';
 import { formatDate } from '../lib/utils.js';
 
 export function ActionItemsPage() {
+  const navigate = useNavigate();
   const toast = useToast();
   const [actionItems, setActionItems] = useState<any[]>([]);
   const [statusFilter, setStatusFilter] = useState('all');
@@ -122,7 +123,7 @@ export function ActionItemsPage() {
               title="No action items found"
               description="Deliverables automatically populate here when meetings conclude and are processed by AI."
               actionLabel="Go to Meetings"
-              onAction={() => window.location.href = '/meetings'}
+              onAction={() => navigate('/meetings')}
               className="m-4"
             />
           ) : (

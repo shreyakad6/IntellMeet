@@ -121,7 +121,7 @@ export function Header({
           <div className="hidden lg:flex items-center pl-4 border-l border-border space-x-2">
             <span className="text-xs text-muted-foreground">Workspace:</span>
             <span className="text-xs font-medium text-foreground bg-secondary/80 border border-border px-2.5 py-1 rounded-lg">
-              Core Platform Engineering
+              {user?.department || 'Enterprise Workspace'}
             </span>
           </div>
         </div>

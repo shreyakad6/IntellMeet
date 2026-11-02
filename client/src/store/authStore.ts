@@ -17,7 +17,6 @@ interface AuthState {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string, department?: string) => Promise<void>;
-  demoLogin: (role: 'admin' | 'member') => Promise<void>;
   logout: () => void;
   checkAuth: () => Promise<void>;
 }
@@ -45,21 +44,6 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true });
     try {
       const res = await api.auth.register({ name, email, password, department });
-      localStorage.setItem('intellmeet_token', res.token);
-      localStorage.setItem('intellmeet_user', JSON.stringify(res.user));
-      set({ user: res.user, token: res.token, isAuthenticated: true, isLoading: false });
-    } catch (err) {
-      set({ isLoading: false });
-      throw err;
-    }
-  },
-
-  demoLogin: async (role: 'admin' | 'member') => {
-    set({ isLoading: true });
-    try {
-      const email = role === 'admin' ? 'alex.admin@intellmeet.io' : 'sarah.dev@intellmeet.io';
-      const password = 'Password123!';
-      const res = await api.auth.login({ email, password });
       localStorage.setItem('intellmeet_token', res.token);
       localStorage.setItem('intellmeet_user', JSON.stringify(res.user));
       set({ user: res.user, token: res.token, isAuthenticated: true, isLoading: false });

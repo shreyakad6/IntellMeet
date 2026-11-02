@@ -216,6 +216,30 @@ ${meeting?.host?.name || 'Workspace Host'}`;
     new Set(transcript?.entries?.map((e: any) => e.speakerName).filter(Boolean) || [])
   ) as string[];
 
+  // Dynamic talk-time statistics computed directly from transcript turns
+  const speakerStats = React.useMemo(() => {
+    if (!transcript?.entries?.length) {
+      return [
+        { name: meeting?.host?.name || 'Host', pct: 100, color: 'bg-primary' }
+      ];
+    }
+    const counts: Record<string, number> = {};
+    let totalWords = 0;
+    transcript.entries.forEach((e: any) => {
+      const spk = e.speakerName || 'Speaker';
+      const words = (e.text || '').split(/\s+/).filter(Boolean).length || 1;
+      counts[spk] = (counts[spk] || 0) + words;
+      totalWords += words;
+    });
+    if (totalWords === 0) return [];
+    const colors = ['bg-primary', 'bg-emerald-500', 'bg-violet-500', 'bg-amber-500', 'bg-rose-500'];
+    return Object.entries(counts).map(([name, words], i) => ({
+      name,
+      pct: Math.max(5, Math.round((words / totalWords) * 100)),
+      color: colors[i % colors.length]
+    }));
+  }, [transcript, meeting]);
+
   const filteredTranscriptEntries = transcript?.entries?.filter((entry: any) => {
     const matchesSearch =
       entry.text.toLowerCase().includes(transcriptSearch.toLowerCase()) ||
@@ -457,18 +481,26 @@ ${meeting?.host?.name || 'Workspace Host'}`;
                       <span className="font-semibold text-foreground">{summary.decisions?.length || 0} decisions</span>
                     </div>
 
-                    {/* Talk Time Simulation / Breakdown */}
+                    {/* Talk Time Ratio */}
                     <div className="pt-2 border-t border-border space-y-2">
                       <span className="text-xs font-semibold text-foreground">Speaker Talk-Time Ratio</span>
                       <div className="h-2 w-full rounded-full bg-secondary flex overflow-hidden">
-                        <div className="bg-primary h-full" style={{ width: '55%' }} title="Host: 55%" />
-                        <div className="bg-emerald-500 h-full" style={{ width: '30%' }} title="Sarah: 30%" />
-                        <div className="bg-amber-500 h-full" style={{ width: '15%' }} title="Marcus: 15%" />
+                        {speakerStats.map((s, idx) => (
+                          <div
+                            key={idx}
+                            className={`${s.color} h-full transition-all`}
+                            style={{ width: `${s.pct}%` }}
+                            title={`${s.name}: ${s.pct}%`}
+                          />
+                        ))}
                       </div>
-                      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" /> Host (55%)</span>
-                        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Engineering (30%)</span>
-                        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-500" /> Ops (15%)</span>
+                      <div className="flex flex-wrap items-center justify-between gap-1 text-[10px] text-muted-foreground">
+                        {speakerStats.map((s, idx) => (
+                          <span key={idx} className="flex items-center gap-1">
+                            <span className={`h-2 w-2 rounded-full ${s.color}`} />
+                            <span className="truncate max-w-[100px]">{s.name} ({s.pct}%)</span>
+                          </span>
+                        ))}
                       </div>
                     </div>
                   </CardContent>

@@ -4,15 +4,16 @@ import { motion } from 'framer-motion';
 import {
   Video,
   ArrowRight,
-  Shield,
+  ShieldCheck,
   Eye,
   EyeOff,
   Sparkles,
   Lock,
   CheckCircle2,
-  Users,
   Sun,
-  Moon
+  Moon,
+  Zap,
+  Layers
 } from 'lucide-react';
 import { Button } from '../components/ui/Button.js';
 import { Input, Label } from '../components/ui/Input.js';
@@ -22,45 +23,10 @@ import { useAuthStore } from '../store/authStore.js';
 import { useThemeStore } from '../store/themeStore.js';
 import { useToast } from '../components/ui/Toast.js';
 
-const DEMO_PERSONAS = [
-  {
-    name: 'Alex Rivera',
-    email: 'alex.admin@intellmeet.io',
-    role: 'admin' as const,
-    title: 'Lead Administrator',
-    department: 'Engineering Leadership',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
-  },
-  {
-    name: 'Sarah Chen',
-    email: 'sarah.dev@intellmeet.io',
-    role: 'member' as const,
-    title: 'Frontend Architect',
-    department: 'Product Engineering',
-    avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80'
-  },
-  {
-    name: 'Marcus Vance',
-    email: 'marcus.ops@intellmeet.io',
-    role: 'member' as const,
-    title: 'Cloud & Infrastructure Lead',
-    department: 'Site Reliability',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80'
-  },
-  {
-    name: 'Priya Patel',
-    email: 'priya.sec@intellmeet.io',
-    role: 'member' as const,
-    title: 'Security & Compliance',
-    department: 'InfoSec Team',
-    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80'
-  }
-];
-
 export function LoginPage() {
   const navigate = useNavigate();
   const toast = useToast();
-  const { login, demoLogin, isLoading } = useAuthStore();
+  const { login, isLoading } = useAuthStore();
   const { theme, toggleTheme } = useThemeStore();
 
   const [email, setEmail] = useState('');
@@ -73,7 +39,7 @@ export function LoginPage() {
     setError('');
 
     if (!email.includes('@')) {
-      setError('Please provide a valid enterprise email address.');
+      setError('Please provide a valid enterprise work email.');
       return;
     }
     if (!password) {
@@ -83,43 +49,31 @@ export function LoginPage() {
 
     try {
       await login(email, password);
-      toast.success('Welcome back', 'Signed in successfully.');
+      toast.success('Welcome Back', 'Signed in to your workspace successfully.');
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Invalid email or password.');
-      toast.error('Authentication Failed', err.message || 'Please check credentials.');
-    }
-  };
-
-  const handleSelectPersona = async (persona: typeof DEMO_PERSONAS[0]) => {
-    setError('');
-    try {
-      await demoLogin(persona.role);
-      toast.success('Demo Profile Loaded', `Signed in as ${persona.name} (${persona.title})`);
-      navigate('/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'Demo login failed.');
-      toast.error('Demo Login Error', err.message || 'Database connection error.');
+      setError(err.message || 'Invalid email or password. Please try again.');
+      toast.error('Authentication Failed', err.message || 'Please check your credentials.');
     }
   };
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col justify-between p-4 sm:p-6 lg:p-8 relative selection:bg-indigo-500/20 overflow-hidden">
       {/* Background Ambient Glow */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[650px] h-[350px] bg-gradient-to-tr from-indigo-500/15 via-violet-500/10 to-transparent blur-3xl pointer-events-none -z-10 rounded-full" />
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-gradient-to-tr from-indigo-500/15 via-violet-500/10 to-transparent blur-3xl pointer-events-none -z-10 rounded-full" />
 
       {/* Top Header */}
       <div className="flex items-center justify-between max-w-7xl mx-auto w-full">
         <Link to="/" className="flex items-center space-x-2.5 group">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-white shadow-xs group-hover:bg-primary-hover transition-colors">
-            <Video className="h-4 w-4" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white shadow-xs group-hover:scale-105 transition-transform">
+            <Video className="h-4.5 w-4.5" />
           </div>
           <div className="flex flex-col">
             <span className="text-base font-bold tracking-tight text-foreground leading-tight">
               IntellMeet
             </span>
-            <span className="text-[9px] uppercase font-semibold tracking-wider text-primary">
-              AI Assistant
+            <span className="text-[10px] uppercase font-semibold tracking-wider text-primary">
+              Enterprise AI Platform
             </span>
           </div>
         </Link>
@@ -129,27 +83,79 @@ export function LoginPage() {
           size="icon"
           onClick={toggleTheme}
           title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-          className="rounded-xl"
+          className="rounded-xl text-muted-foreground hover:text-foreground"
         >
           {theme === 'dark' ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-slate-600" />}
         </Button>
       </div>
 
-      {/* Main Centered Auth Form */}
+      {/* Main Container - Split Linear & Slack SaaS Layout */}
       <div className="w-full max-w-4xl mx-auto my-auto py-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-          {/* Left Column: Form */}
+          {/* Left Column: Enterprise Security & Platform Highlights */}
+          <motion.div
+            initial={{ opacity: 0, x: -15 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.35 }}
+            className="hidden lg:flex lg:col-span-5 flex-col space-y-6"
+          >
+            <div className="space-y-2">
+              <Badge variant="default" className="text-[11px] py-1 px-3">
+                <Sparkles className="h-3 w-3 mr-1 text-primary" /> Enterprise Workspace
+              </Badge>
+              <h2 className="text-2xl font-bold tracking-tight text-foreground">
+                Meeting intelligence for high-velocity teams.
+              </h2>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Log in to access your WebRTC encrypted rooms, AI-generated executive summaries, and synchronized Kanban task boards.
+              </p>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="flex items-start space-x-3 p-3 rounded-xl border border-border/70 bg-card/60">
+                <div className="h-7 w-7 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0 border border-indigo-500/20">
+                  <Zap className="h-4 w-4" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-foreground">Ultra-Low Latency Mesh</h4>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Encrypted peer-to-peer audio/video streaming without intermediary server delays.</p>
+                </div>
+              </div>
+
+              <div className="flex items-start space-x-3 p-3 rounded-xl border border-border/70 bg-card/60">
+                <div className="h-7 w-7 rounded-lg bg-violet-500/10 text-violet-500 flex items-center justify-center shrink-0 border border-violet-500/20">
+                  <Sparkles className="h-4 w-4" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-foreground">Autonomous Meeting Notes</h4>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Whisper transcription and Gemini synthesis extract decisions and deliverables automatically.</p>
+                </div>
+              </div>
+
+              <div className="flex items-start space-x-3 p-3 rounded-xl border border-border/70 bg-card/60">
+                <div className="h-7 w-7 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0 border border-emerald-500/20">
+                  <ShieldCheck className="h-4 w-4" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-foreground">Enterprise SOC2 Standards</h4>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Zero telemetry leakage with role-based JWT auth and refresh token security.</p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Right Column: Authentication Card */}
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
+            transition={{ duration: 0.35 }}
             className="lg:col-span-7"
           >
-            <Card className="border-border/80 shadow-xl bg-card/90 backdrop-blur-md">
+            <Card className="border-border/80 shadow-2xl bg-card/95 backdrop-blur-md">
               <CardHeader className="pb-4">
                 <CardTitle className="text-xl sm:text-2xl font-bold">Sign in to IntellMeet</CardTitle>
                 <CardDescription>
-                  Enter your credentials or choose a pre-configured team demo persona below.
+                  Enter your enterprise work credentials to access your organization's workspace.
                 </CardDescription>
               </CardHeader>
 
@@ -166,10 +172,11 @@ export function LoginPage() {
                     <Input
                       id="email"
                       type="email"
-                      placeholder="alex.admin@intellmeet.io"
+                      placeholder="name@company.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
+                      autoComplete="email"
                       className="mt-1"
                     />
                   </div>
@@ -177,7 +184,6 @@ export function LoginPage() {
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <Label htmlFor="password">Password</Label>
-                      <span className="text-[11px] text-muted-foreground font-medium">Demo: Password123!</span>
                     </div>
                     <div className="relative">
                       <Input
@@ -187,6 +193,7 @@ export function LoginPage() {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
+                        autoComplete="current-password"
                         className="pr-10"
                       />
                       <button
@@ -200,13 +207,13 @@ export function LoginPage() {
                     </div>
                   </div>
 
-                  <Button type="submit" className="w-full h-10 text-sm font-semibold" isLoading={isLoading}>
+                  <Button type="submit" className="w-full h-11 text-sm font-semibold shadow-xs" isLoading={isLoading}>
                     Sign In to Workspace
                     <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
                 </form>
 
-                <div className="pt-2 text-center text-xs text-muted-foreground">
+                <div className="pt-3 text-center text-xs text-muted-foreground border-t border-border/60">
                   Don't have an enterprise account?{' '}
                   <Link to="/register" className="text-primary font-semibold hover:underline">
                     Create an account
@@ -214,63 +221,6 @@ export function LoginPage() {
                 </div>
               </CardContent>
             </Card>
-          </motion.div>
-
-          {/* Right Column: 1-Click Demo Personas */}
-          <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.1 }}
-            className="lg:col-span-5 space-y-3"
-          >
-            <div className="flex items-center justify-between pb-1">
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
-                1-Click Demo Profiles
-              </span>
-              <Badge variant="success" dot>Live Ready</Badge>
-            </div>
-
-            <div className="space-y-2.5">
-              {DEMO_PERSONAS.map((persona) => (
-                <button
-                  key={persona.email}
-                  type="button"
-                  onClick={() => handleSelectPersona(persona)}
-                  className="w-full flex items-center justify-between p-3 rounded-xl border border-border bg-card/60 hover:bg-secondary/70 hover:border-primary/40 transition-all duration-150 text-left group cursor-pointer shadow-2xs"
-                >
-                  <div className="flex items-center space-x-3 truncate">
-                    <img
-                      src={persona.avatar}
-                      alt={persona.name}
-                      className="h-10 w-10 rounded-xl object-cover border border-border/80 group-hover:scale-105 transition-transform"
-                    />
-                    <div className="truncate">
-                      <div className="flex items-center space-x-1.5">
-                        <span className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors">
-                          {persona.name}
-                        </span>
-                        <Badge variant={persona.role === 'admin' ? 'default' : 'secondary'} className="text-[9px] py-0">
-                          {persona.role === 'admin' ? 'Admin' : 'Member'}
-                        </Badge>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground truncate">{persona.title}</p>
-                    </div>
-                  </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all shrink-0 ml-2" />
-                </button>
-              ))}
-            </div>
-
-            <div className="p-3 rounded-xl border border-border/60 bg-muted/30 text-[11px] text-muted-foreground space-y-1">
-              <div className="flex items-center space-x-1.5 font-medium text-foreground">
-                <Lock className="h-3 w-3 text-emerald-500" />
-                <span>Enterprise Security Standard</span>
-              </div>
-              <p className="leading-relaxed">
-                Zero telemetry leakage, end-to-end encrypted WebRTC mesh, role-based JWT auth.
-              </p>
-            </div>
           </motion.div>
         </div>
       </div>

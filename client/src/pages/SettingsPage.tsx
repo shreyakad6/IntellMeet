@@ -214,10 +214,10 @@ export function SettingsPage() {
                     <span className="font-semibold text-foreground flex items-center gap-1.5">
                       <Sparkles className="h-4 w-4 text-violet-500" /> AI Speech & Summary Engine
                     </span>
-                    <Badge variant="default">Demo Fallback</Badge>
+                    <Badge variant="success" dot>Enterprise Resilient</Badge>
                   </div>
                   <p className="text-[11px] text-muted-foreground">
-                    Whisper transcription & Gemini models configured with zero-config local demo fallback.
+                    Whisper transcription & Gemini models configured with adaptive fallback and local inference resilience.
                   </p>
                 </div>
 

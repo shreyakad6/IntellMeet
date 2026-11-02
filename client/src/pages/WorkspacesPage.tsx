@@ -191,7 +191,7 @@ export function WorkspacesPage() {
                                 {memberData.name || 'Member'}
                               </p>
                               <p className="text-[11px] text-muted-foreground truncate">
-                                {memberData.email || 'user@intellmeet.io'} &bull; {memberData.department || 'Engineering'}
+                                {memberData.email || 'member@organization.com'} &bull; {memberData.department || 'Team'}
                               </p>
                             </div>
                           </div>
